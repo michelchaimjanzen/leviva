@@ -10,6 +10,8 @@ import apiRoutes from './routes/api.js';
 dotenv.config();
 
 // Connect to MongoDB Atlas Cloud Vault
+console.log("Attempting to connect to MongoDB...");
+
 mongoose.connect(process.env.MONGO_URI as string)
   .then(() => {
     console.log('✅ Connected to MongoDB Atlas successfully!');
@@ -139,7 +141,9 @@ io.on('connection', (socket) => {
 // Start the server
 const PORT = process.env.PORT || 3001;
 
-server.listen(PORT, () => {
-  console.log(`🚀 Leviva Sync Server running on port ${PORT}`);
-  console.log(`📡 Ready for local Wi-Fi connections`);
+const portNumber = typeof PORT === 'string' ? parseInt(PORT, 10) : PORT;
+
+server.listen(portNumber, '0.0.0.0', () => {
+  console.log(`🚀 Leviva Sync Server running on port ${portNumber}`);
+  console.log(`📡 Ready for connections`);
 });
