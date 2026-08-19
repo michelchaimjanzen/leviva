@@ -25,22 +25,26 @@ const app = express();
 // =========================================================================
 // CORS POLICY
 // =========================================================================
-const PRODUCTION_FRONTEND_URL = process.env.FRONTEND_URL || 'https://leviva-omega.vercel.app';
 const isProduction = process.env.NODE_ENV === 'production';
 
 const STATIC_ALLOWED_ORIGINS = [
   'http://localhost:5173',
-  PRODUCTION_FRONTEND_URL,
-];
+  process.env.FRONTEND_URL,
+].filter(Boolean); // Filters out undefined if FRONTEND_URL isn't set
+
+// Automatically allow ANY Vercel deployment URL (*.vercel.app)
+const VERCEL_ORIGIN_REGEX = /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/;
 
 // Matches any http://<local-lan-ip>:5173 address (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
 const LOCAL_LAN_ORIGIN_REGEX = /^http:\/\/((192\.168|10)\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}):5173$/;
 
 const corsOriginCheck = (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-  // Allow non-browser requests (curl, server-to-server, some mobile webviews) with no Origin header.
+  // Allow non-browser requests with no Origin header
   if (!origin) return callback(null, true);
 
   if (STATIC_ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+
+  if (VERCEL_ORIGIN_REGEX.test(origin)) return callback(null, true);
 
   if (!isProduction && LOCAL_LAN_ORIGIN_REGEX.test(origin)) return callback(null, true);
 
