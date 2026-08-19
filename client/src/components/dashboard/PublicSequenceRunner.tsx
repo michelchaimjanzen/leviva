@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 // Path is relative to client/src/components/dashboard/ -> client/src/components/tests/
 import { AuditoryRepetitionRunner } from '../tests/AuditoryRepetition.tsx';
@@ -7,6 +7,8 @@ import { ReadingAloudRunner } from '../tests/ReadingAloud';
 import { BinaryChoiceRunner } from '../tests/BinaryChoiceTemplate';
 import { TargetRunnerEngine } from '../tests/VisualTargetIdentification';
 import { NamingTaskRunner } from '../tests/NamingTask';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface SequenceStep {
   stepType: 'info' | 'test';
@@ -53,7 +55,7 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`http://localhost:3001/api/sequences/${sequenceId}`)
+    fetch(`${API_URL}/api/sequences/${sequenceId}`)
       .then(res => {
         if (!res.ok) throw new Error(`Server responded ${res.status}`);
         return res.json();
@@ -106,7 +108,7 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
         masterResults: finalResults
       };
 
-      const response = await fetch('http://localhost:3001/api/results', {
+      const response = await fetch(`${API_URL}/api/results`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

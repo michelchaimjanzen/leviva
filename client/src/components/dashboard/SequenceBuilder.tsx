@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export function SequenceBuilder() {
   const [title, setTitle] = useState('');
@@ -26,7 +28,7 @@ export function SequenceBuilder() {
 
   // 1. Fetch all your pre-built tests from the database
   useEffect(() => {
-    fetch('http://localhost:3001/api/tests')
+    fetch(`${API_URL}/api/tests`)
       .then(res => res.json())
       .then(data => setAvailableTests(data))
       .catch(err => console.error("Failed to load tests:", err));
@@ -68,7 +70,7 @@ export function SequenceBuilder() {
     };
 
     try {
-      const response = await fetch('http://localhost:3001/api/sequences', {
+      const response = await fetch(`${API_URL}/api/sequences`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -133,8 +135,8 @@ export function SequenceBuilder() {
           <div 
             key={idx} 
             draggable
-            onDragStart={(e) => (dragItem.current = idx)}
-            onDragEnter={(e) => (dragOverItem.current = idx)}
+            onDragStart={() => (dragItem.current = idx)}
+            onDragEnter={() => (dragOverItem.current = idx)}
             onDragEnd={handleSort}
             onDragOver={(e) => e.preventDefault()} // This is required to allow dropping
             style={{ 

@@ -25,16 +25,7 @@ const app = express();
 // =========================================================================
 // CORS POLICY
 // =========================================================================
-// - Always allowed: your local dev frontend (localhost:5173) and, once you have
-//   one, the production frontend URL from FRONTEND_URL (Vercel/Netlify).
-// - Only in non-production: any device on your local WiFi network (e.g. an iPad
-//   used for clinician/patient testing hitting the backend via 192.168.x.x or
-//   10.x.x.x). This keeps local multi-device testing working without opening
-//   the door to arbitrary origins once this is actually deployed.
-//
-// TODO before going live: set FRONTEND_URL in your production environment
-// variables to the exact deployed URL, e.g. https://leviva.vercel.app
-const PRODUCTION_FRONTEND_URL = process.env.FRONTEND_URL || 'https://leviva.vercel.app'; // <-- placeholder, replace with real deployed URL
+const PRODUCTION_FRONTEND_URL = process.env.FRONTEND_URL || 'https://leviva-omega.vercel.app';
 const isProduction = process.env.NODE_ENV === 'production';
 
 const STATIC_ALLOWED_ORIGINS = [

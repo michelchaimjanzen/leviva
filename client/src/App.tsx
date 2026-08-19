@@ -22,6 +22,9 @@ import { PatientIntakeWorkspace } from './components/patients/PatientIntakeForm'
 import { PatientBank } from './components/patients/PatientBank';
 import type { PatientIntake } from './types/patient';
 
+// NEW: Dynamic API URL for Render vs Localhost
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 // =========================================================================
 // 2. TYPES & INTERFACES FOR THE TEST BANK
 // =========================================================================
@@ -59,7 +62,7 @@ const DEFAULT_FOLDERS = ['Auditory', 'VisualAssociation', 'ReadingAloud', 'Binar
 export default function App() {
 
 useEffect(() => {
-  const socket = io("http://localhost:3001");
+  const socket = io(API_URL);
   socket.on("connect", () => {
     console.log("✅ Successfully connected to the Sync Server!", socket.id);
   });
@@ -114,7 +117,7 @@ useEffect(() => {
   const openSequenceBank = async () => {
     try {
       // 1. Fetch live sequences from MongoDB cloud storage
-      const response = await fetch('http://localhost:3001/api/sequences');
+      const response = await fetch(`${API_URL}/api/sequences`);
       const cloudSequences = await response.json();
 
       // 2. Also check local storage backup for any offline additions
@@ -161,7 +164,7 @@ useEffect(() => {
     // Check if the ID is a real 24-character MongoDB ID
     const isMongoId = existingId && /^[0-9a-fA-F]{24}$/.test(existingId);
     const method = isMongoId ? 'PUT' : 'POST';
-    const url = isMongoId ? `http://localhost:3001/api/tests/${existingId}` : 'http://localhost:3001/api/tests';
+    const url = isMongoId ? `${API_URL}/api/tests/${existingId}` : `${API_URL}/api/tests`;
 
     try {
       const response = await fetch(url, {
@@ -216,7 +219,7 @@ useEffect(() => {
     // If it's a cloud test, delete it from the server
     if (/^[0-9a-fA-F]{24}$/.test(testId)) {
       try {
-        await fetch(`http://localhost:3001/api/tests/${testId}`, { method: 'DELETE' });
+        await fetch(`${API_URL}/api/tests/${testId}`, { method: 'DELETE' });
       } catch (e) { console.error("Failed to delete from cloud", e); }
     }
     // Remove from local React state
@@ -228,7 +231,7 @@ useEffect(() => {
     
     // Delete from cloud
     try {
-      await fetch(`http://localhost:3001/api/sequences/${sequenceId}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/api/sequences/${sequenceId}`, { method: 'DELETE' });
     } catch (e) { console.error("Failed to delete from cloud", e); }
 
     // Delete from local backup
@@ -510,8 +513,8 @@ useEffect(() => {
 
                      <button 
                         onClick={() => {
-                          // Generate the link using your React app's URL (port 5173) and the sequence ID
-                          const link = `http://localhost:5173/run/${seq._id}`;
+                          // Generate the link using your React app's URL dynamically
+                          const link = `${window.location.origin}/run/${seq._id}`;
                           navigator.clipboard.writeText(link);
                           alert(`✅ Link copied to clipboard!\n\n${link}`);
                         }}
