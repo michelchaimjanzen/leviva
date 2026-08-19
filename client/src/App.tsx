@@ -3,7 +3,7 @@ import './App.css';
 import { io } from "socket.io-client";
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from '@clerk/clerk-react';
 import { SequenceBuilder } from './components/dashboard/SequenceBuilder'; 
-import { PublicSequenceRunner } from './components/dashboard/PublicSequenceRunner';
+import { PublicSequenceRunner } from './components/dashboard/PublicSequenceRunner.tsx';
 
 // =========================================================================
 // 1. COMPONENT IMPORTS
@@ -23,8 +23,7 @@ import { PatientBank } from './components/patients/PatientBank';
 import type { PatientIntake } from './types/patient';
 
 // NEW: Dynamic API URL for Render vs Localhost
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
+const API_URL = import.meta.env.VITE_API_URL || 'https://leviva-backend.onrender.com';
 // =========================================================================
 // 2. TYPES & INTERFACES FOR THE TEST BANK
 // =========================================================================
