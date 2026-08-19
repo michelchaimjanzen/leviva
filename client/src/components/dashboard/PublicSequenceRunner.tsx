@@ -8,7 +8,7 @@ import { BinaryChoiceRunner } from '../tests/BinaryChoiceTemplate';
 import { TargetRunnerEngine } from '../tests/VisualTargetIdentification';
 import { NamingTaskRunner } from '../tests/NamingTask';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://leviva-backend.onrender.com';
+const API_URL = 'https://leviva-backend.onrender.com';
 interface SequenceStep {
   stepType: 'info' | 'test';
   infoContent?: string;

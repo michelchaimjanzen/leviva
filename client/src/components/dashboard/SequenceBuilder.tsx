@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://leviva-backend.onrender.com';
+const API_URL = 'https://leviva-backend.onrender.com';
 
 export function SequenceBuilder() {
   const [title, setTitle] = useState('');
