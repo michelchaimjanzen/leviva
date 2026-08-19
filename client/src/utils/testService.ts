@@ -3,8 +3,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://leviva-backend.onrender
 export async function saveTestConfig(testData: any, testId?: string) {
   try {
     const url = testId 
-      ? `${API_URL}/api/tests/${testId}` 
-      : '${API_URL}/api/tests';
+      ? `${API_URL}/api/tests/${testId}`
+      : `${API_URL}/api/tests`;
       
     const method = testId ? 'PUT' : 'POST';
 
