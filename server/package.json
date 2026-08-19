@@ -5,7 +5,7 @@
   "description": "",
   "main": "src/index.ts",
   "scripts": {
-    "start": "node index.js",
+    "start": "NODE_OPTIONS='--loader ts-node/esm --no-warnings' node src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "NODE_OPTIONS='--loader ts-node/esm --no-warnings' nodemon src/index.ts"
   },
