@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 
 const API_URL = 'https://leviva-backend.onrender.com';
 
 export function SequenceBuilder() {
+  const { getToken } = useAuth();   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [availableTests, setAvailableTests] = useState<any[]>([]);
@@ -27,11 +29,23 @@ export function SequenceBuilder() {
   };
 
   // 1. Fetch all your pre-built tests from the database
+export function SequenceBuilder() {
+  const { getToken } = useAuth(); // Add this line!
+  // ... your other state variables ...
+
   useEffect(() => {
-    fetch(`${API_URL}/api/tests`)
-      .then(res => res.json())
-      .then(data => {
-        // Bulletproof check: If it's an array, use it. If the tests are nested in an object, extract them. Otherwise, default to empty array [].
+    const loadTests = async () => {
+      try {
+        const token = await getToken(); // Grab the active session token
+        
+        const response = await fetch(`${API_URL}/api/tests`, {
+          headers: {
+            'Authorization': `Bearer ${token}` // Show the ID badge!
+          }
+        });
+        
+        const data = await response.json();
+        
         if (Array.isArray(data)) {
           setAvailableTests(data);
         } else if (data && Array.isArray(data.tests)) {
@@ -42,8 +56,12 @@ export function SequenceBuilder() {
           console.error("Backend sent unexpected data format:", data);
           setAvailableTests([]); 
         }
-      })
-      .catch(err => console.error("Failed to load tests:", err));
+      } catch (err) {
+        console.error("Failed to load tests:", err);
+      }
+    };
+
+    loadTests();
   }, []);
 
   // 2. Handlers to add blocks to your sequence
