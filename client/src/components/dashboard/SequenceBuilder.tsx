@@ -3,7 +3,7 @@ import { useAuth } from '@clerk/clerk-react';
 
 const API_URL = 'https://leviva-backend.onrender.com';
 
-export function SequenceBuilder() {
+export function SequenceBuilder({ initialSequence = null }: { initialSequence?: any }) {
   const { getToken } = useAuth();   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -12,6 +12,22 @@ export function SequenceBuilder() {
 
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+
+  // Auto-fill the form if we are editing an existing sequence
+  useEffect(() => {
+    if (initialSequence) {
+      setTitle(initialSequence.sequenceName || '');
+      setDescription(initialSequence.description || '');
+      
+      // If the backend populated the testId with a full object, extract just the string ID for the dropdown
+      const formattedSteps = initialSequence.steps?.map((s: any) => ({
+        ...s,
+        testId: typeof s.testId === 'object' && s.testId !== null ? s.testId._id : s.testId
+      })) || [];
+      
+      setSteps(formattedSteps);
+    }
+  }, [initialSequence]);
 
   const handleSort = () => {
     if (dragItem.current !== null && dragOverItem.current !== null) {
@@ -92,8 +108,15 @@ export function SequenceBuilder() {
 
     try {
       const token = await getToken(); // Grab token so the backend allows the save
-      const response = await fetch(`${API_URL}/api/sequences`, {
-        method: 'POST',
+      
+      // Dynamically choose PUT (update) or POST (create)
+      const method = initialSequence ? 'PUT' : 'POST';
+      const endpoint = initialSequence 
+        ? `${API_URL}/api/sequences/${initialSequence._id}` 
+        : `${API_URL}/api/sequences`;
+
+      const response = await fetch(endpoint, {
+        method: method,
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` // Show ID badge!
@@ -103,21 +126,30 @@ export function SequenceBuilder() {
       
       if (response.ok) {
         const savedData = await response.json();
-        alert("✅ Sequence successfully saved to the Cloud and Local database!");
+        alert(`✅ Sequence successfully ${initialSequence ? 'updated' : 'saved'} to the Cloud!`);
         
+        // Note: For editing, updating the local storage gets a bit more complex, 
+        // so we just fetch fresh from the cloud on the dashboard usually.
+        // But for offline backup purposes, we'll just push it here.
         const existingLocalSeqs = JSON.parse(localStorage.getItem('leviva_sequenceBank') || '[]');
-        const newLocalSeq = {
-          _id: savedData._id || `Seq_${Date.now()}`,
-          sequenceName: title,
-          description,
-          steps,
-          dateCreated: new Date().toLocaleString()
-        };
-        localStorage.setItem('leviva_sequenceBank', JSON.stringify([...existingLocalSeqs, newLocalSeq]));
+        if (!initialSequence) {
+          const newLocalSeq = {
+            _id: savedData._id || `Seq_${Date.now()}`,
+            sequenceName: title,
+            description,
+            steps,
+            dateCreated: new Date().toLocaleString()
+          };
+          localStorage.setItem('leviva_sequenceBank', JSON.stringify([...existingLocalSeqs, newLocalSeq]));
+        }
 
-        setSteps([]); 
-        setTitle('');
-        setDescription('');
+        // Only clear the form if we are creating a NEW sequence. 
+        // If editing, leave it so the user sees their saved work.
+        if (!initialSequence) {
+          setSteps([]); 
+          setTitle('');
+          setDescription('');
+        }
       } else {
         alert("❌ Failed to save sequence.");
       }
@@ -129,7 +161,7 @@ export function SequenceBuilder() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
-      <h2>Layer 2: Master Sequence Builder</h2>
+      <h2>{initialSequence ? 'Edit Sequence' : 'Layer 2: Master Sequence Builder'}</h2>
       
       <div style={{ backgroundColor: '#f9f9f9', padding: '15px', border: '1px solid #ccc', marginBottom: '20px' }}>
         <input 
@@ -204,7 +236,7 @@ export function SequenceBuilder() {
 
       {steps.length > 0 && (
         <button onClick={handleSaveSequence} style={{ width: '100%', padding: '15px', backgroundColor: 'green', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>
-          Save Sequence to Cloud 💾
+          {initialSequence ? 'Update Sequence 💾' : 'Save Sequence to Cloud 💾'}
         </button>
       )}
     </div>
