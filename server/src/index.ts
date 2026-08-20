@@ -70,6 +70,15 @@ app.use(cors(corsOptions));
 // Requires CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY in your .env.
 app.use(clerkMiddleware());
 
+// Health-check / sanity route. Hitting the bare backend URL previously 404'd with no
+// explanation, which is genuinely ambiguous — it doesn't tell you whether that 404 came
+// from Express having no root route (expected, harmless) or from a real request losing
+// its /api/... suffix somewhere in the frontend. This makes that distinction visible, and
+// the timestamp doubles as a quick way to confirm a given Render deploy is actually live.
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'Leviva backend', deployedAt: new Date().toISOString() });
+});
+
 app.use('/api', apiRoutes);
 
 
