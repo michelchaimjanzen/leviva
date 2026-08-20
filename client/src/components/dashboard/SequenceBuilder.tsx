@@ -10,37 +10,29 @@ export function SequenceBuilder() {
   const [availableTests, setAvailableTests] = useState<any[]>([]);
   const [steps, setSteps] = useState<any[]>([]);
 
-  // Add these right under your existing state variables:
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
 
   const handleSort = () => {
     if (dragItem.current !== null && dragOverItem.current !== null) {
       const _steps = [...steps];
-      // Remove the item from its original position
       const draggedItemContent = _steps.splice(dragItem.current, 1)[0];
-      // Insert it into the new position
       _steps.splice(dragOverItem.current, 0, draggedItemContent);
       setSteps(_steps);
     }
-    // Reset the trackers
     dragItem.current = null;
     dragOverItem.current = null;
   };
 
   // 1. Fetch all your pre-built tests from the database
-export function SequenceBuilder() {
-  const { getToken } = useAuth(); // Add this line!
-  // ... your other state variables ...
-
   useEffect(() => {
     const loadTests = async () => {
       try {
-        const token = await getToken(); // Grab the active session token
+        const token = await getToken(); 
         
         const response = await fetch(`${API_URL}/api/tests`, {
           headers: {
-            'Authorization': `Bearer ${token}` // Show the ID badge!
+            'Authorization': `Bearer ${token}` 
           }
         });
         
@@ -62,7 +54,7 @@ export function SequenceBuilder() {
     };
 
     loadTests();
-  }, []);
+  }, [getToken]);
 
   // 2. Handlers to add blocks to your sequence
   const addInfoPage = () => {
@@ -86,7 +78,6 @@ export function SequenceBuilder() {
   };
 
   // 3. Save the final Sequence to MongoDB
-  // 3. Save the final Sequence to MongoDB and local browser storage
   const handleSaveSequence = async () => {
     if (!title.trim()) {
       alert("Please give this sequence a title.");
@@ -100,9 +91,13 @@ export function SequenceBuilder() {
     };
 
     try {
+      const token = await getToken(); // Grab token so the backend allows the save
       const response = await fetch(`${API_URL}/api/sequences`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Show ID badge!
+        },
         body: JSON.stringify(payload)
       });
       
@@ -110,7 +105,6 @@ export function SequenceBuilder() {
         const savedData = await response.json();
         alert("✅ Sequence successfully saved to the Cloud and Local database!");
         
-        // Save a local backup copy to browser storage so it's accessible offline/locally
         const existingLocalSeqs = JSON.parse(localStorage.getItem('leviva_sequenceBank') || '[]');
         const newLocalSeq = {
           _id: savedData._id || `Seq_${Date.now()}`,
@@ -168,16 +162,15 @@ export function SequenceBuilder() {
             onDragStart={() => (dragItem.current = idx)}
             onDragEnter={() => (dragOverItem.current = idx)}
             onDragEnd={handleSort}
-            onDragOver={(e) => e.preventDefault()} // This is required to allow dropping
+            onDragOver={(e) => e.preventDefault()} 
             style={{ 
               padding: '15px', 
               border: '2px solid darkblue', 
               backgroundColor: '#fff', 
               position: 'relative',
-              cursor: 'grab' // Changes the mouse to a grab hand
+              cursor: 'grab' 
             }}
           >
-            {/* Visual Drag Handle */}
             <div style={{ position: 'absolute', top: '10px', left: '10px', cursor: 'grab', fontSize: '20px', color: '#888' }}>
               ☰
             </div>
