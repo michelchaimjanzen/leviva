@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.61.9",
     "pdfjs-dist": "^5.4.624",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

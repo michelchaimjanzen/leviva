@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@clerk/clerk-react';
 
 const API_URL = 'https://leviva-backend.onrender.com';
 
@@ -12,7 +11,6 @@ export function SequenceBuilder({
   onSaveComplete?: () => void; 
   onCancel?: () => void; 
 }) {
-  const { getToken } = useAuth();   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [availableTests, setAvailableTests] = useState<any[]>([]);
@@ -27,7 +25,6 @@ export function SequenceBuilder({
       setTitle(initialSequence.sequenceName || '');
       setDescription(initialSequence.description || '');
       
-      // If the backend populated the testId with a full object, extract just the string ID for the dropdown
       const formattedSteps = initialSequence.steps?.map((s: any) => ({
         ...s,
         testId: typeof s.testId === 'object' && s.testId !== null ? s.testId._id : s.testId
@@ -52,7 +49,8 @@ export function SequenceBuilder({
   useEffect(() => {
     const loadTests = async () => {
       try {
-        const token = await getToken(); 
+        // TEMP: Dummy token until JWT is wired up
+        const token = "temp_local_token"; 
         
         const response = await fetch(`${API_URL}/api/tests`, {
           headers: {
@@ -78,7 +76,7 @@ export function SequenceBuilder({
     };
 
     loadTests();
-  }, [getToken]);
+  }, []);
 
   // 2. Handlers to add blocks to your sequence
   const addInfoPage = () => {
@@ -115,7 +113,8 @@ export function SequenceBuilder({
     };
 
     try {
-      const token = await getToken(); // Grab token so the backend allows the save
+      // TEMP: Dummy token until JWT is wired up
+      const token = "temp_local_token"; 
       
       // Dynamically choose PUT (update) or POST (create)
       const method = initialSequence ? 'PUT' : 'POST';
@@ -139,9 +138,7 @@ export function SequenceBuilder({
         if (onSaveComplete) {
           onSaveComplete(); // Jump back to the bank!
         }
-        // Note: For editing, updating the local storage gets a bit more complex, 
-        // so we just fetch fresh from the cloud on the dashboard usually.
-        // But for offline backup purposes, we'll just push it here.
+        
         const existingLocalSeqs = JSON.parse(localStorage.getItem('leviva_sequenceBank') || '[]');
         if (!initialSequence) {
           const newLocalSeq = {
@@ -154,8 +151,6 @@ export function SequenceBuilder({
           localStorage.setItem('leviva_sequenceBank', JSON.stringify([...existingLocalSeqs, newLocalSeq]));
         }
 
-        // Only clear the form if we are creating a NEW sequence. 
-        // If editing, leave it so the user sees their saved work.
         if (!initialSequence) {
           setSteps([]); 
           setTitle('');
@@ -196,7 +191,6 @@ export function SequenceBuilder({
         <button onClick={addTestStep} style={{ padding: '10px', backgroundColor: '#e0e0e0', cursor: 'pointer' }}>+ Add Interactive Test</button>
       </div>
 
-{/* RENDER THE SEQUENCE STEPS */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
         {steps.map((step, idx) => (
           <div 

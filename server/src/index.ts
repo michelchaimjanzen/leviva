@@ -4,8 +4,8 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import { clerkMiddleware } from '@clerk/express';
 import apiRoutes from './routes/api.js';
+import authRoutes from './routes/authRoutes.js';
 
 dotenv.config();
 
@@ -62,14 +62,6 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors(corsOptions));
 
-// Populates req.auth on every request (signed-in or not) by reading Clerk's session
-// cookie/token. Routes stay PUBLIC by default even with this mounted — it's requireAuth()
-// and requireRole() inside api.ts that actually lock a given route down. This just makes
-// getAuth(req) available everywhere, including on the public patient-facing routes (where
-// it will simply report "not signed in", which those routes ignore).
-// Requires CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY in your .env.
-app.use(clerkMiddleware());
-
 // Health-check / sanity route. Hitting the bare backend URL previously 404'd with no
 // explanation, which is genuinely ambiguous — it doesn't tell you whether that 404 came
 // from Express having no root route (expected, harmless) or from a real request losing
@@ -80,8 +72,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', apiRoutes);
-app.use('/api/auth', require('./routes/authRoutes'));
-
+app.use('/api/auth', authRoutes);
 
 // 1. Create a raw Node HTTP server wrapping the Express app.
 // Socket.IO requires this instead of standard app.listen().
