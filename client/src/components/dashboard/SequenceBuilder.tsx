@@ -30,7 +30,19 @@ export function SequenceBuilder() {
   useEffect(() => {
     fetch(`${API_URL}/api/tests`)
       .then(res => res.json())
-      .then(data => setAvailableTests(data))
+      .then(data => {
+        // Bulletproof check: If it's an array, use it. If the tests are nested in an object, extract them. Otherwise, default to empty array [].
+        if (Array.isArray(data)) {
+          setAvailableTests(data);
+        } else if (data && Array.isArray(data.tests)) {
+          setAvailableTests(data.tests);
+        } else if (data && Array.isArray(data.data)) {
+          setAvailableTests(data.data);
+        } else {
+          console.error("Backend sent unexpected data format:", data);
+          setAvailableTests([]); 
+        }
+      })
       .catch(err => console.error("Failed to load tests:", err));
   }, []);
 
@@ -170,7 +182,7 @@ export function SequenceBuilder() {
                 style={{ padding: '10px', marginLeft: '30px', width: 'calc(100% - 30px)' }}
               >
                 <option value="" disabled>-- Select a test from your bank --</option>
-                {availableTests.map(t => (
+                {availableTests?.map(t => (
                   <option key={t._id} value={t._id}>{t.testName} ({t.testType})</option>
                 ))}
               </select>
