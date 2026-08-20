@@ -80,6 +80,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', apiRoutes);
+app.use('/api/auth', require('./routes/authRoutes'));
 
 
 // 1. Create a raw Node HTTP server wrapping the Express app.
