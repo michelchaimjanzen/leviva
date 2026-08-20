@@ -504,18 +504,32 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
 
   // NEW: Dictionary to store selections silently before final submission
   const answersMapRef = useRef<Record<string, PatientTargetResponse>>({});
+  // NEW: Dictionary to remember exact scroll positions per slide
+  const scrollPositionsRef = useRef<Record<string, number>>({});
 
   const activeSlide = configuredSlides[currentIndex];
 
-  useEffect(() => {
+useEffect(() => {
     slideStartTimeRef.current = Date.now();
     
-    // NEW: When slide changes, load previously stored selections if they exist
     const existingMemory = answersMapRef.current[activeSlide.id];
     setSelectedZones(existingMemory ? existingMemory.selectedZones : []);
     setLastClickTime(existingMemory ? existingMemory.reactionTimeMs : null);
+
+    // NEW: Smart Scrolling Logic
+    const savedScrollPosition = scrollPositionsRef.current[activeSlide.id];
     
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // We need a tiny timeout to ensure the DOM has rendered the new image before scrolling
+    setTimeout(() => {
+      if (savedScrollPosition !== undefined) {
+        // Visited before: Instantly jump back to their previous scroll position
+        window.scrollTo({ top: savedScrollPosition, behavior: 'auto' });
+      } else {
+        // First visit: Smoothly snap to the top of the new slide
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 50);
+
   }, [currentIndex, activeSlide.id]);
 
   useEffect(() => {
@@ -633,6 +647,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
 
   const proceedToNextStep = () => {
     commitCurrentSlideToMemory();
+    scrollPositionsRef.current[activeSlide.id] = window.scrollY; // Save current scroll height!
     setLiveFlag(false);
     setLiveComment('');
 
@@ -665,6 +680,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
   // NEW: Back Navigation Handler
   const handlePreviousStep = () => {
     commitCurrentSlideToMemory(); // Save progress before moving backwards
+    scrollPositionsRef.current[activeSlide.id] = window.scrollY; // Save current scroll height!
     setLiveFlag(false);
     setLiveComment('');
 
