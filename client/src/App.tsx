@@ -539,7 +539,7 @@ useEffect(() => {
         return (
           <SequenceBuilder
             key={editSequenceTarget?._id || 'new-sequence'}
-            initialData={editSequenceTarget}
+            initialSequence={editSequenceTarget}
             onSaveComplete={() => { setEditSequenceTarget(null); openSequenceBank(); }}
             onCancel={() => { setEditSequenceTarget(null); setCurrentView('sequence-bank'); }}
           />

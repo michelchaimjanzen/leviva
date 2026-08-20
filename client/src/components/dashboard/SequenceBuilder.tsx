@@ -3,7 +3,15 @@ import { useAuth } from '@clerk/clerk-react';
 
 const API_URL = 'https://leviva-backend.onrender.com';
 
-export function SequenceBuilder({ initialSequence = null }: { initialSequence?: any }) {
+export function SequenceBuilder({ 
+  initialSequence = null, 
+  onSaveComplete, 
+  onCancel 
+}: { 
+  initialSequence?: any; 
+  onSaveComplete?: () => void; 
+  onCancel?: () => void; 
+}) {
   const { getToken } = useAuth();   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -128,6 +136,9 @@ export function SequenceBuilder({ initialSequence = null }: { initialSequence?: 
         const savedData = await response.json();
         alert(`✅ Sequence successfully ${initialSequence ? 'updated' : 'saved'} to the Cloud!`);
         
+        if (onSaveComplete) {
+          onSaveComplete(); // Jump back to the bank!
+        }
         // Note: For editing, updating the local storage gets a bit more complex, 
         // so we just fetch fresh from the cloud on the dashboard usually.
         // But for offline backup purposes, we'll just push it here.

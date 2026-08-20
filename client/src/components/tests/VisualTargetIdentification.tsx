@@ -78,14 +78,48 @@ export const isPointInZone = (xPct: number, yPct: number, zone: TargetZone) => {
 // =========================================================================
 export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
   
-  const [testTitle, setTestTitle] = useState(initialData?.title || '');
+  const [testTitle, setTestTitle] = useState(initialData?.testName || initialData?.title || '');
   const [testDescription, setTestDescription] = useState(initialData?.description || '');
-  const [slides, setSlides] = useState<TargetSlide[]>(initialData?.configData || []);
+  
+  // Translates database data back to UI data so you don't lose your work!
+  const [slides, setSlides] = useState<TargetSlide[]>(() => {
+    if (initialData?.slides) {
+      return initialData.slides.map((s: any): TargetSlide => ({
+        id: s._id || `slide_${Date.now()}_${Math.random()}`,
+        slideType: s.slideType || (s.targets?.length > 0 ? 'graded' : 'info'),
+        imageUrl: s.imageUrl || '',
+        infoText: s.infoText || '',
+        targetZones: (s.targets || []).map((t: any): TargetZone => {
+          const isPoly = !!t.polygonPoints && t.polygonPoints.length > 0;
+          return {
+            id: t.id || `zone_${Math.random()}`,
+            type: t.isCorrect ? 'correct' : 'incorrect',
+            shapeType: isPoly ? 'polygon' : 'rectangle',
+            box: isPoly ? undefined : {
+              id: t.id,
+              xPercent: t.x,
+              yPercent: t.y,
+              widthPercent: t.width || 10,
+              heightPercent: t.height || 10,
+            },
+            polygon: isPoly ? {
+              id: t.id,
+              points: t.polygonPoints.map((p: any) => ({ xPercent: p.x, yPercent: p.y }))
+            } : undefined
+          };
+        })
+      }));
+    }
+    return initialData?.configData || [];
+  });
+
   const [activeSlideIndex, setActiveSlideIndex] = useState<number | null>(null);
 
-  const firstSlideHasLimit = !!initialData?.configData?.[0]?.timeLimitSeconds;
+  const firstSlideHasLimit = !!initialData?.configData?.[0]?.timeLimitSeconds || !!initialData?.slides?.[0]?.timeLimitMs;
   const [hasTimeLimit, setHasTimeLimit] = useState<boolean>(firstSlideHasLimit);
-  const [timeLimit, setTimeLimit] = useState<number>(initialData?.configData?.[0]?.timeLimitSeconds || 90);
+  const [timeLimit, setTimeLimit] = useState<number>(
+    initialData?.slides?.[0]?.timeLimitMs ? initialData.slides[0].timeLimitMs / 1000 : (initialData?.configData?.[0]?.timeLimitSeconds || 90)
+  );
   
   const initialMode = initialData?.configData?.[0]?.selectionMode === 'multiple';
   const [isMultiSelect, setIsMultiSelect] = useState<boolean>(initialMode);
@@ -177,9 +211,12 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
     const gradedSlides = slides.filter(s => s.slideType === 'graded');
     if (gradedSlides.length === 0) { alert("You must have at least one graded test slide."); return; }
     
+    // Updated payload mapper to explicitly include slideType and infoText
     const finalSlides = slides.map((s, index) => ({
       slideNumber: index + 1,
+      slideType: s.slideType,
       imageUrl: s.imageUrl,
+      infoText: s.infoText,
       timeLimitMs: hasTimeLimit ? timeLimit * 1000 : undefined,
       targets: s.targetZones.map(z => ({
         id: z.id,
@@ -198,10 +235,8 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
       slides: finalSlides
     };
 
-    // Save to MongoDB Atlas via your backend
     await saveTestConfig(testPayload, initialData?._id);
 
-    // Keep your original callback execution
     const mappedSlidesForApp = slides.map(s => ({
       ...s,
       timeLimitSeconds: hasTimeLimit ? timeLimit : null,
@@ -222,7 +257,6 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
     const img = new Image();
     img.src = activeSlide.imageUrl;
     img.onload = () => {
-      // FIX: Dynamically adjust canvas to perfectly match the image's aspect ratio
       const baseWidth = 800;
       const scaleFactor = baseWidth / img.width;
       canvas.width = baseWidth;
@@ -429,7 +463,6 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
                     <button onClick={() => { setActiveTool('delete'); setPolyDraft([]); }} style={toolBtnStyle('delete')}>🗑️ Delete Tool</button>
                   </div>
                   
-                  {/* FIX: Removed fixed width/height so canvas adapts dynamically */}
                   <canvas
                     ref={canvasRef} 
                     style={{ border: '2px solid black', cursor: activeTool === 'poly' || activeTool === 'rect' ? 'crosshair' : 'pointer', backgroundColor: 'white', maxWidth: '100%' }}
@@ -454,7 +487,6 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
 // =========================================================================
 // LAYER 3 & 4: PATIENT TEST RUNNER & DATA OUTPUT
 // =========================================================================
-// NEW: Define the approved props
 interface TargetRunnerProps {
   configuredSlides: TargetSlide[];
   forcedMode?: string;
@@ -462,7 +494,6 @@ interface TargetRunnerProps {
 }
 
 export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }: TargetRunnerProps) {
-  // NEW: If forcedMode exists, skip the selection screen immediately
   const [sessionMode, setSessionMode] = useState<'selection' | 'patient-solo' | 'clinician-solo' | 'synchronized'>(
     forcedMode === 'Patient Solo' ? 'patient-solo' : 'selection'
   );
@@ -490,6 +521,8 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
     slideStartTimeRef.current = Date.now();
     setSelectedZones([]);
     setLastClickTime(null);
+    // INSTANT SNAP: Scrolls smoothly to the top of the test window whenever the slide changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentIndex]);
 
   useEffect(() => {
@@ -526,7 +559,6 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
     };
   }, [socket]);
 
-  // NEW: Start the clock immediately if we bypass the start screen
   useEffect(() => {
     if (forcedMode === 'Patient Solo') {
       setTestStartTime(Date.now());
@@ -618,7 +650,6 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
       }
    } else {
       setIsTestComplete(true);
-      // NEW: Send the data straight to the Sequence Runner!
       if (onComplete) {
         onComplete({
           testType: 'Visual Target Identification',
@@ -691,7 +722,6 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
   }
 
   if (isTestComplete) {
-    // NEW: The Sequence Runner will instantly swap to the next test, so we render nothing here.
     if (onComplete) return null; 
 
     if (sessionMode === 'synchronized' && syncRole === 'patient') {
@@ -713,7 +743,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
   }
 
   return (
-    <div style={{ padding: '20px', border: '2px solid darkblue', marginTop: '20px' }}>
+    <div style={{ padding: '20px', border: '2px solid darkblue', marginTop: '20px', display: 'flex', flexDirection: 'column', minHeight: '80vh' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <h2>Layer 3: Patient Testing Engine</h2>
@@ -729,7 +759,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
       
       <p>Slide {currentIndex + 1} / {configuredSlides.length}</p>
       
-      <div style={{ position: 'relative', textAlign: 'center', backgroundColor: '#f0f0f0', padding: '20px', minHeight: '300px' }}>
+      <div style={{ position: 'relative', textAlign: 'center', backgroundColor: '#f0f0f0', padding: '20px', flexGrow: 1 }}>
         {activeSlide.slideType === 'info' ? (
           <div style={{ padding: '20px' }}>
             {activeSlide.imageUrl && <img src={activeSlide.imageUrl} style={{ maxWidth: '100%', border: '1px solid #ccc', marginBottom: '20px' }} alt="Info" />}
@@ -760,7 +790,8 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
         )}
       </div>
 
-      <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#eef8ff' }}>
+      {/* NEW STICKY CONTAINER: Floats at the bottom so you never have to scroll for it */}
+      <div style={{ position: 'sticky', bottom: '0', zIndex: 10, marginTop: '20px', padding: '15px', backgroundColor: '#eef8ff', borderTop: '2px solid darkblue', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}>
         {activeSlide.slideType === 'info' ? (
           (sessionMode === 'synchronized' && syncRole === 'patient') ? (
             <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Waiting for clinician to advance...</p>
@@ -770,22 +801,22 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
         ) : (
           <>
             {(sessionMode === 'clinician-solo' || (sessionMode === 'synchronized' && syncRole === 'clinician')) ? (
-              <>
-                <h3>Clinician Live Auto-Grader</h3>
-                <p>Targets Selected: <strong>{selectedZones.length}</strong> ({selectedZones.filter(z => z.type === 'correct').length} Correct, {selectedZones.filter(z => z.type === 'incorrect').length} Incorrect)</p>
-                <p>Last Interaction: {lastClickTime ? `${(lastClickTime / 1000).toFixed(2)} seconds` : '--'}</p>
-                <label><input type="checkbox" checked={liveFlag} onChange={(e) => setLiveFlag(e.target.checked)} /> Flag Trial</label>
-                <textarea value={liveComment} onChange={(e) => setLiveComment(e.target.value)} style={{ width: '100%', marginTop: '10px' }}/>
-                <button onClick={proceedToNextStep} style={{ width: '100%', padding: '12px', marginTop: '10px', backgroundColor: 'darkblue', color: 'white' }}>Next Slide / Finish</button>
-              </>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Targets Selected: <strong>{selectedZones.length}</strong></span>
+                  <label><input type="checkbox" checked={liveFlag} onChange={(e) => setLiveFlag(e.target.checked)} /> Flag Trial</label>
+                </div>
+                <textarea placeholder="Clinician comment..." value={liveComment} onChange={(e) => setLiveComment(e.target.value)} style={{ width: '100%' }}/>
+                <button onClick={proceedToNextStep} style={{ width: '100%', padding: '12px', backgroundColor: 'darkblue', color: 'white' }}>Next Slide / Finish</button>
+              </div>
             ) : (sessionMode === 'synchronized' && syncRole === 'patient') ? (
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Selections synced. Waiting for clinician...</p>
               </div>
             ) : (
-              <div style={{ textAlign: 'center' }}>
-                <p>Selected {selectedZones.length} targets.</p>
-                <button onClick={proceedToNextStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Submit & Next Slide →</button>
+              <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '16px' }}>Selected {selectedZones.length} targets.</span>
+                <button onClick={proceedToNextStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Submit & Next Slide →</button>
               </div>
             )}
           </>
