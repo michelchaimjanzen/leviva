@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import { io } from "socket.io-client";
-import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, SignInButton, UserButton, useUser, useAuth } from '@clerk/clerk-react';
 import { SequenceBuilder } from './components/dashboard/SequenceBuilder'; 
 import { PublicSequenceRunner } from './components/dashboard/PublicSequenceRunner.tsx';
 
@@ -59,6 +59,7 @@ const DEFAULT_FOLDERS = ['Auditory', 'VisualAssociation', 'ReadingAloud', 'Binar
 // =========================================================================
 
 export default function App() {
+const { getToken } = useAuth();  
 
 useEffect(() => {
   const socket = io(API_URL);
@@ -166,9 +167,14 @@ useEffect(() => {
     const url = isMongoId ? `${API_URL}/api/tests/${existingId}` : `${API_URL}/api/tests`;
 
     try {
+      const token = await getToken(); // Grab the active session token
+
       const response = await fetch(url, {
         method: method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Attach the ID badge!
+         },
         body: JSON.stringify(payload)
       });
 

@@ -214,31 +214,7 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
     if (slides.length === 0) { alert("Please add at least one slide."); return; }
     const gradedSlides = slides.filter(s => s.slideType === 'graded');
     if (gradedSlides.length === 0) { alert("You must have at least one graded test slide."); return; }
-    
-    const finalSlides = slides.map((s, index) => ({
-      slideNumber: index + 1,
-      slideType: s.slideType,
-      imageUrl: s.imageUrl,
-      infoText: s.infoText,
-      timeLimitMs: hasTimeLimit ? timeLimit * 1000 : undefined,
-      targets: s.targetZones.map(z => ({
-        id: z.id,
-        x: z.box ? z.box.xPercent : (z.polygon?.points[0]?.xPercent || 0),
-        y: z.box ? z.box.yPercent : (z.polygon?.points[0]?.yPercent || 0),
-        width: z.box?.widthPercent,
-        height: z.box?.heightPercent,
-        polygonPoints: z.polygon?.points.map(p => ({ x: p.xPercent, y: p.yPercent })),
-        isCorrect: z.type === 'correct'
-      }))
-    }));
 
-    const testPayload = {
-      testName: testTitle,
-      testType: "VisualTargetIdentification",
-      slides: finalSlides
-    };
-
-    await saveTestConfig(testPayload, initialData?._id);
 
     const mappedSlidesForApp = slides.map(s => ({
       ...s,
