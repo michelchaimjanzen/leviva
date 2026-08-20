@@ -694,7 +694,25 @@ useEffect(() => {
   };
 
   const handleForceEndTest = () => {
+    // 1. Save whatever they had clicked on the current slide right when the clock hit 0
+    commitCurrentSlideToMemory(); 
+
+    // 2. Gather all the saved snapshots from the memory bank
+    const finalAnswersArray = configuredSlides
+      .filter(s => s.slideType === 'graded')
+      .map(s => answersMapRef.current[s.id])
+      .filter(Boolean); // Filter out any empty ones
+
+    setPatientAnswers(finalAnswersArray);
     setIsTestComplete(true);
+    
+    // 3. Hand the data to the Sequence Runner so it instantly moves to the next test!
+    if (onComplete) {
+      onComplete({
+        testType: 'Visual Target Identification',
+        slideResults: finalAnswersArray
+      });
+    }
   };
 
   const triggerDownload = () => {
