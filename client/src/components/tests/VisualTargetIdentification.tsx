@@ -36,6 +36,7 @@ export interface TargetSlide {
   targetZones: TargetZone[];
   timeLimitSeconds?: number | null; 
   selectionMode?: 'single' | 'multiple'; 
+  allowBackNavigation?: boolean; // NEW: Toggle for back navigation
 }
 
 export interface PatientTargetResponse {
@@ -81,7 +82,6 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
   const [testTitle, setTestTitle] = useState(initialData?.testName || initialData?.title || '');
   const [testDescription, setTestDescription] = useState(initialData?.description || '');
   
-  // Translates database data back to UI data so you don't lose your work!
   const [slides, setSlides] = useState<TargetSlide[]>(() => {
     if (initialData?.slides) {
       return initialData.slides.map((s: any): TargetSlide => ({
@@ -123,6 +123,10 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
   
   const initialMode = initialData?.configData?.[0]?.selectionMode === 'multiple';
   const [isMultiSelect, setIsMultiSelect] = useState<boolean>(initialMode);
+
+  // NEW: Toggle for back navigation
+  const initialBackMode = initialData?.configData?.[0]?.allowBackNavigation === true;
+  const [allowBackNavigation, setAllowBackNavigation] = useState<boolean>(initialBackMode);
 
   const [activeTool, setActiveTool] = useState<'rect' | 'poly' | 'toggle' | 'delete'>('rect');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -211,7 +215,6 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
     const gradedSlides = slides.filter(s => s.slideType === 'graded');
     if (gradedSlides.length === 0) { alert("You must have at least one graded test slide."); return; }
     
-    // Updated payload mapper to explicitly include slideType and infoText
     const finalSlides = slides.map((s, index) => ({
       slideNumber: index + 1,
       slideType: s.slideType,
@@ -240,7 +243,8 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
     const mappedSlidesForApp = slides.map(s => ({
       ...s,
       timeLimitSeconds: hasTimeLimit ? timeLimit : null,
-      selectionMode: isMultiSelect ? ('multiple' as const) : ('single' as const)
+      selectionMode: isMultiSelect ? ('multiple' as const) : ('single' as const),
+      allowBackNavigation: allowBackNavigation
     }));
 
     onSave(mappedSlidesForApp, { title: testTitle, description: testDescription });
@@ -401,6 +405,13 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
           <label style={{ cursor: 'pointer' }}><input type="radio" checked={isMultiSelect} onChange={() => setIsMultiSelect(true)} /> Multi-Select</label>
         </div>
 
+        {/* NEW: Back Navigation Toggle UI */}
+        <div style={{ backgroundColor: '#e2e3e5', padding: '15px', border: '1px solid #d6d8db', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
+          <strong>⬅️ Back Navigation:</strong>
+          <label style={{ cursor: 'pointer' }}><input type="radio" checked={!allowBackNavigation} onChange={() => setAllowBackNavigation(false)} /> Disabled</label>
+          <label style={{ cursor: 'pointer' }}><input type="radio" checked={allowBackNavigation} onChange={() => setAllowBackNavigation(true)} /> Allowed</label>
+        </div>
+
         <div style={{ backgroundColor: '#fff3cd', padding: '15px', border: '1px solid #ffeeba', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
           <strong>⏱️ Global Time Limit:</strong>
           <label style={{ cursor: 'pointer' }}><input type="radio" checked={!hasTimeLimit} onChange={() => setHasTimeLimit(false)} /> No Limit</label>
@@ -515,15 +526,21 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
   const [lastClickTime, setLastClickTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(configuredSlides[0]?.timeLimitSeconds || null);
 
+  // NEW: Dictionary to store selections silently before final submission
+  const answersMapRef = useRef<Record<string, PatientTargetResponse>>({});
+
   const activeSlide = configuredSlides[currentIndex];
 
   useEffect(() => {
     slideStartTimeRef.current = Date.now();
-    setSelectedZones([]);
-    setLastClickTime(null);
-    // INSTANT SNAP: Scrolls smoothly to the top of the test window whenever the slide changes
+    
+    // NEW: When slide changes, load previously stored selections if they exist
+    const existingMemory = answersMapRef.current[activeSlide.id];
+    setSelectedZones(existingMemory ? existingMemory.selectedZones : []);
+    setLastClickTime(existingMemory ? existingMemory.reactionTimeMs : null);
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentIndex]);
+  }, [currentIndex, activeSlide.id]);
 
   useEffect(() => {
     if (timeLeft === null || isTestComplete || testStartTime === null) return;
@@ -618,13 +635,13 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
     }
   };
 
-  const proceedToNextStep = () => {
-    let updated = [...patientAnswers];
+  // NEW: Extracts the save logic so we can call it when going Forward OR Backward
+  const commitCurrentSlideToMemory = () => {
     if (activeSlide.slideType === 'graded') {
       const correctHits = selectedZones.filter(z => z.type === 'correct').length;
       const incorrectHits = selectedZones.filter(z => z.type === 'incorrect').length;
       
-      const response: PatientTargetResponse = {
+      answersMapRef.current[activeSlide.id] = {
         slideID: activeSlide.id,
         score: activeSlide.selectionMode === 'multiple' 
           ? `${correctHits} Correct, ${incorrectHits} Incorrect` 
@@ -635,9 +652,11 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
         isFlagged: liveFlag,
         clinicianComment: liveComment,
       };
-      updated = [...patientAnswers, response];
-      setPatientAnswers(updated);
     }
+  };
+
+  const proceedToNextStep = () => {
+    commitCurrentSlideToMemory();
     setLiveFlag(false);
     setLiveComment('');
 
@@ -649,12 +668,35 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
         socket.emit('clinician-slide-change', { sessionId: syncSetup.roomId, newIndex: nextIndex });
       }
    } else {
+      // NEW: Build the final array from memory ONLY when the test is completely finished
+      const finalAnswersArray = configuredSlides
+        .filter(s => s.slideType === 'graded')
+        .map(s => answersMapRef.current[s.id])
+        .filter(Boolean); // Filter out any undefineds if they skipped something
+
+      setPatientAnswers(finalAnswersArray);
       setIsTestComplete(true);
+      
       if (onComplete) {
         onComplete({
           testType: 'Visual Target Identification',
-          slideResults: updated
+          slideResults: finalAnswersArray
         });
+      }
+    }
+  };
+
+  // NEW: Back Navigation Handler
+  const handlePreviousStep = () => {
+    commitCurrentSlideToMemory(); // Save progress before moving backwards
+    setLiveFlag(false);
+    setLiveComment('');
+
+    if (currentIndex > 0) {
+      const prevIndex = currentIndex - 1;
+      setCurrentIndex(prevIndex);
+      if (socket && sessionMode === 'synchronized' && syncRole === 'clinician') {
+        socket.emit('clinician-slide-change', { sessionId: syncSetup.roomId, newIndex: prevIndex });
       }
     }
   };
@@ -790,13 +832,17 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
         )}
       </div>
 
-      {/* NEW STICKY CONTAINER: Floats at the bottom so you never have to scroll for it */}
       <div style={{ position: 'sticky', bottom: '0', zIndex: 10, marginTop: '20px', padding: '15px', backgroundColor: '#eef8ff', borderTop: '2px solid darkblue', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}>
         {activeSlide.slideType === 'info' ? (
           (sessionMode === 'synchronized' && syncRole === 'patient') ? (
             <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Waiting for clinician to advance...</p>
           ) : (
-            <button onClick={proceedToNextStep} style={{ width: '100%', padding: '15px', backgroundColor: 'darkblue', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' }}>Continue to Next Slide →</button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {activeSlide.allowBackNavigation && currentIndex > 0 && (
+                 <button onClick={handlePreviousStep} style={{ flex: 1, padding: '15px', backgroundColor: '#666', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px' }}>← Back</button>
+              )}
+              <button onClick={proceedToNextStep} style={{ flex: activeSlide.allowBackNavigation && currentIndex > 0 ? 2 : 1, padding: '15px', backgroundColor: 'darkblue', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px' }}>Continue to Next Slide →</button>
+            </div>
           )
         ) : (
           <>
@@ -807,7 +853,12 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
                   <label><input type="checkbox" checked={liveFlag} onChange={(e) => setLiveFlag(e.target.checked)} /> Flag Trial</label>
                 </div>
                 <textarea placeholder="Clinician comment..." value={liveComment} onChange={(e) => setLiveComment(e.target.value)} style={{ width: '100%' }}/>
-                <button onClick={proceedToNextStep} style={{ width: '100%', padding: '12px', backgroundColor: 'darkblue', color: 'white' }}>Next Slide / Finish</button>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  {activeSlide.allowBackNavigation && currentIndex > 0 && (
+                    <button onClick={handlePreviousStep} style={{ flex: 1, padding: '12px', backgroundColor: '#666', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>← Back</button>
+                  )}
+                  <button onClick={proceedToNextStep} style={{ flex: 2, padding: '12px', backgroundColor: 'darkblue', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Next Slide / Finish</button>
+                </div>
               </div>
             ) : (sessionMode === 'synchronized' && syncRole === 'patient') ? (
               <div style={{ textAlign: 'center' }}>
@@ -816,7 +867,14 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
             ) : (
               <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 'bold', fontSize: '16px' }}>Selected {selectedZones.length} targets.</span>
-                <button onClick={proceedToNextStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Submit & Next Slide →</button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {activeSlide.allowBackNavigation && currentIndex > 0 && (
+                    <button onClick={handlePreviousStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>← Back</button>
+                  )}
+                  <button onClick={proceedToNextStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    {currentIndex < configuredSlides.length - 1 ? 'Submit & Next Slide →' : 'Submit & Finish'}
+                  </button>
+                </div>
               </div>
             )}
           </>
