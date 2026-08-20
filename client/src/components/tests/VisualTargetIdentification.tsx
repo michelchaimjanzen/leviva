@@ -763,8 +763,8 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
   return (
     <div style={{ padding: '20px', border: '2px solid darkblue', marginTop: '20px', display: 'flex', flexDirection: 'column', minHeight: '80vh' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h2>Layer 3: Patient Testing Engine</h2>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: 'white', padding: '10px 0', borderBottom: '2px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        <h2 style={{ margin: 0 }}>Layer 3: Patient Testing Engine</h2>
         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
           {timeLeft !== null && (
             <div style={{ padding: '10px 15px', backgroundColor: timeLeft <= 15 ? 'darkred' : '#222', color: 'white', borderRadius: '8px', fontWeight: 'bold', fontSize: '18px' }}>
@@ -848,7 +848,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
                     <button onClick={handlePreviousStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>← Back</button>
                   )}
                   <button onClick={proceedToNextStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    {currentIndex < configuredSlides.length - 1 ? 'Submit & Next Slide →' : 'Submit & Finish'}
+                    {currentIndex < configuredSlides.length - 1 ? 'Next Slide →' : 'Submit & Finish'}
                   </button>
                 </div>
               </div>
