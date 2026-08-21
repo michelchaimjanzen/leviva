@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { extractImagesFromPDF } from '../../utils/pdfExtractor';
 import { io, Socket } from 'socket.io-client'; 
-import { saveTestConfig } from '../../utils/testService'; 
 
 // =========================================================================
 // TYPE DEFINITIONS & MATH ENGINE
@@ -36,7 +35,8 @@ export interface TargetSlide {
   targetZones: TargetZone[];
   timeLimitSeconds?: number | null; 
   selectionMode?: 'single' | 'multiple'; 
-  allowBackNavigation?: boolean; // NEW: Toggle for back navigation
+  allowBackNavigation?: boolean; 
+  infoDurationSeconds?: number; // <-- NEW: Time before auto-advance
 }
 
 export interface PatientTargetResponse {
@@ -89,6 +89,7 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
         slideType: s.slideType || (s.targets?.length > 0 ? 'graded' : 'info'),
         imageUrl: s.imageUrl || '',
         infoText: s.infoText || '',
+        infoDurationSeconds: s.infoDurationSeconds,
         targetZones: (s.targets || []).map((t: any): TargetZone => {
           const isPoly = !!t.polygonPoints && t.polygonPoints.length > 0;
           return {
@@ -121,20 +122,20 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
     initialData?.slides?.[0]?.timeLimitMs ? initialData.slides[0].timeLimitMs / 1000 : (initialData?.configData?.[0]?.timeLimitSeconds || 90)
   );
   
+  // NEW: Global Info Duration Settings
+  const initialInfoDuration = initialData?.configData?.[0]?.infoDurationSeconds || 5;
+  const [globalInfoDuration, setGlobalInfoDuration] = useState<number>(initialInfoDuration);
+
   const initialMode = initialData?.configData?.[0]?.selectionMode === 'multiple';
   const [isMultiSelect, setIsMultiSelect] = useState<boolean>(initialMode);
-
-  // NEW: Toggle for back navigation
   const initialBackMode = initialData?.configData?.[0]?.allowBackNavigation === true;
   const [allowBackNavigation, setAllowBackNavigation] = useState<boolean>(initialBackMode);
 
   const [activeTool, setActiveTool] = useState<'rect' | 'poly' | 'toggle' | 'delete'>('rect');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  
   const [isDrawingRect, setIsDrawingRect] = useState(false);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [currentPoint, setCurrentPoint] = useState<{ x: number; y: number } | null>(null);
-  
   const [polyDraft, setPolyDraft] = useState<{x: number, y: number}[]>([]);
   const [mousePos, setMousePos] = useState<{x: number, y: number} | null>(null);
   const [dragItemIndex, setDragItemIndex] = useState<number | null>(null);
@@ -173,7 +174,7 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
 
   const addBlankInfoPage = () => {
     setSlides(prev => {
-      const updated = [...prev, { id: `info_${Date.now()}`, slideType: 'info', imageUrl: '', infoText: '', targetZones: [] }];
+      const updated = [...prev, { id: `info_${Date.now()}`, slideType: 'info', imageUrl: '', infoText: '', targetZones: [], infoDurationSeconds: globalInfoDuration }];
       setActiveSlideIndex(updated.length - 1);
       return updated;
     });
@@ -215,12 +216,12 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
     const gradedSlides = slides.filter(s => s.slideType === 'graded');
     if (gradedSlides.length === 0) { alert("You must have at least one graded test slide."); return; }
 
-
     const mappedSlidesForApp = slides.map(s => ({
       ...s,
       timeLimitSeconds: hasTimeLimit ? timeLimit : null,
       selectionMode: isMultiSelect ? ('multiple' as const) : ('single' as const),
-      allowBackNavigation: allowBackNavigation
+      allowBackNavigation: allowBackNavigation,
+      infoDurationSeconds: s.slideType === 'info' ? (s.infoDurationSeconds ?? globalInfoDuration) : undefined
     }));
 
     onSave(mappedSlidesForApp, { title: testTitle, description: testDescription });
@@ -381,7 +382,6 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
           <label style={{ cursor: 'pointer' }}><input type="radio" checked={isMultiSelect} onChange={() => setIsMultiSelect(true)} /> Multi-Select</label>
         </div>
 
-        {/* NEW: Back Navigation Toggle UI */}
         <div style={{ backgroundColor: '#e2e3e5', padding: '15px', border: '1px solid #d6d8db', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
           <strong>⬅️ Back Navigation:</strong>
           <label style={{ cursor: 'pointer' }}><input type="radio" checked={!allowBackNavigation} onChange={() => setAllowBackNavigation(false)} /> Disabled</label>
@@ -398,6 +398,15 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
               seconds
             </span>
           )}
+        </div>
+
+        {/* NEW: Global Info Duration UI */}
+        <div style={{ backgroundColor: '#e2f0d9', padding: '15px', border: '1px solid #c3d69b', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
+          <strong>⏱️ Info Auto-Advance:</strong>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <input type="number" value={globalInfoDuration} onChange={(e) => setGlobalInfoDuration(Number(e.target.value))} style={{ width: '60px', padding: '5px', textAlign: 'center' }} /> 
+            seconds
+          </span>
         </div>
       </div>
 
@@ -439,6 +448,10 @@ export function VisualTargetWorkspace({ initialData, onSave }: WorkspaceProps) {
               {activeSlide.slideType === 'info' ? (
                 <div style={{ padding: '20px' }}>
                   <h3>Instruction / Info Page</h3>
+                  <label style={{ display: 'block', marginBottom: '10px', textAlign: 'left', marginLeft: '10%' }}>
+                    <strong>Page Duration (Seconds):</strong>
+                    <input type="number" value={activeSlide.infoDurationSeconds ?? globalInfoDuration} onChange={(e) => { const updated = [...slides]; updated[activeSlideIndex!].infoDurationSeconds = Number(e.target.value); setSlides(updated); }} style={{ marginLeft: '10px', width: '60px', padding: '5px' }} />
+                  </label>
                   <textarea value={activeSlide.infoText || ''} onChange={(e) => { const updated = [...slides]; updated[activeSlideIndex!].infoText = e.target.value; setSlides(updated); }} placeholder="Type instructions for the patient here..." style={{ width: '80%', height: '150px', padding: '10px', fontSize: '16px' }} />
                 </div>
               ) : (
@@ -502,30 +515,24 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
   const [lastClickTime, setLastClickTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(configuredSlides[0]?.timeLimitSeconds || null);
 
-  // NEW: Dictionary to store selections silently before final submission
   const answersMapRef = useRef<Record<string, PatientTargetResponse>>({});
-  // NEW: Dictionary to remember exact scroll positions per slide
   const scrollPositionsRef = useRef<Record<string, number>>({});
 
   const activeSlide = configuredSlides[currentIndex];
 
-useEffect(() => {
+  useEffect(() => {
     slideStartTimeRef.current = Date.now();
     
     const existingMemory = answersMapRef.current[activeSlide.id];
     setSelectedZones(existingMemory ? existingMemory.selectedZones : []);
     setLastClickTime(existingMemory ? existingMemory.reactionTimeMs : null);
 
-    // NEW: Smart Scrolling Logic
     const savedScrollPosition = scrollPositionsRef.current[activeSlide.id];
     
-    // We need a tiny timeout to ensure the DOM has rendered the new image before scrolling
     setTimeout(() => {
       if (savedScrollPosition !== undefined) {
-        // Visited before: Instantly jump back to their previous scroll position
         window.scrollTo({ top: savedScrollPosition, behavior: 'auto' });
       } else {
-        // First visit: Smoothly snap to the top of the new slide
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }, 50);
@@ -625,7 +632,6 @@ useEffect(() => {
     }
   };
 
-  // NEW: Extracts the save logic so we can call it when going Forward OR Backward
   const commitCurrentSlideToMemory = () => {
     if (activeSlide.slideType === 'graded') {
       const correctHits = selectedZones.filter(z => z.type === 'correct').length;
@@ -647,7 +653,7 @@ useEffect(() => {
 
   const proceedToNextStep = () => {
     commitCurrentSlideToMemory();
-    scrollPositionsRef.current[activeSlide.id] = window.scrollY; // Save current scroll height!
+    scrollPositionsRef.current[activeSlide.id] = window.scrollY; 
     setLiveFlag(false);
     setLiveComment('');
 
@@ -659,11 +665,10 @@ useEffect(() => {
         socket.emit('clinician-slide-change', { sessionId: syncSetup.roomId, newIndex: nextIndex });
       }
    } else {
-      // NEW: Build the final array from memory ONLY when the test is completely finished
       const finalAnswersArray = configuredSlides
         .filter(s => s.slideType === 'graded')
         .map(s => answersMapRef.current[s.id])
-        .filter(Boolean); // Filter out any undefineds if they skipped something
+        .filter(Boolean); 
 
       setPatientAnswers(finalAnswersArray);
       setIsTestComplete(true);
@@ -671,16 +676,16 @@ useEffect(() => {
       if (onComplete) {
         onComplete({
           testType: 'Visual Target Identification',
+          totalTimeSpentMs: testStartTime ? Date.now() - testStartTime : null,
           slideResults: finalAnswersArray
         });
       }
     }
   };
 
-  // NEW: Back Navigation Handler
   const handlePreviousStep = () => {
-    commitCurrentSlideToMemory(); // Save progress before moving backwards
-    scrollPositionsRef.current[activeSlide.id] = window.scrollY; // Save current scroll height!
+    commitCurrentSlideToMemory(); 
+    scrollPositionsRef.current[activeSlide.id] = window.scrollY; 
     setLiveFlag(false);
     setLiveComment('');
 
@@ -694,26 +699,49 @@ useEffect(() => {
   };
 
   const handleForceEndTest = () => {
-    // 1. Save whatever they had clicked on the current slide right when the clock hit 0
     commitCurrentSlideToMemory(); 
 
-    // 2. Gather all the saved snapshots from the memory bank
     const finalAnswersArray = configuredSlides
       .filter(s => s.slideType === 'graded')
       .map(s => answersMapRef.current[s.id])
-      .filter(Boolean); // Filter out any empty ones
+      .filter(Boolean); 
 
     setPatientAnswers(finalAnswersArray);
     setIsTestComplete(true);
     
-    // 3. Hand the data to the Sequence Runner so it instantly moves to the next test!
     if (onComplete) {
       onComplete({
         testType: 'Visual Target Identification',
+        totalTimeSpentMs: testStartTime ? Date.now() - testStartTime : null,
         slideResults: finalAnswersArray
       });
     }
   };
+
+  // --- NEW: AUTO-ADVANCE EFFECT ---
+  // Safely references proceedToNextStep so the timer doesn't use stale logic
+  const proceedRef = useRef(proceedToNextStep);
+  useEffect(() => { proceedRef.current = proceedToNextStep; }, [proceedToNextStep]);
+
+  useEffect(() => {
+    if (sessionMode !== 'patient-solo' || isTestComplete) return;
+
+    let timerId: NodeJS.Timeout;
+
+    if (activeSlide.slideType === 'info' && activeSlide.infoDurationSeconds) {
+      // Advance Info pages after their specific set time
+      timerId = setTimeout(() => {
+        proceedRef.current();
+      }, activeSlide.infoDurationSeconds * 1000);
+    } else if (activeSlide.slideType === 'graded' && activeSlide.selectionMode === 'single' && selectedZones.length > 0) {
+      // Advance Graded Single-Select pages 2 seconds after the patient taps a target!
+      timerId = setTimeout(() => {
+        proceedRef.current();
+      }, 2000); 
+    }
+
+    return () => clearTimeout(timerId);
+  }, [currentIndex, activeSlide, sessionMode, isTestComplete, selectedZones]);
 
   const triggerDownload = () => {
     const finalReport = {
@@ -794,6 +822,9 @@ useEffect(() => {
     );
   }
 
+  // Hide the manual next/back buttons from the patient if they are in an auto-advancing slide!
+  const isPatientAutoAdvance = sessionMode === 'patient-solo' && (activeSlide.slideType === 'info' || activeSlide.selectionMode === 'single');
+
   return (
     <div style={{ padding: '20px', border: '2px solid darkblue', marginTop: '20px', display: 'flex', flexDirection: 'column', minHeight: '80vh' }}>
       
@@ -842,54 +873,56 @@ useEffect(() => {
         )}
       </div>
 
-      <div style={{ position: 'sticky', bottom: '0', zIndex: 10, marginTop: '20px', padding: '15px', backgroundColor: '#eef8ff', borderTop: '2px solid darkblue', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}>
-        {activeSlide.slideType === 'info' ? (
-          (sessionMode === 'synchronized' && syncRole === 'patient') ? (
-            <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Waiting for clinician to advance...</p>
-          ) : (
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {activeSlide.allowBackNavigation && currentIndex > 0 && (
-                 <button onClick={handlePreviousStep} style={{ flex: 1, padding: '15px', backgroundColor: '#666', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px' }}>← Back</button>
-              )}
-              <button onClick={proceedToNextStep} style={{ flex: activeSlide.allowBackNavigation && currentIndex > 0 ? 2 : 1, padding: '15px', backgroundColor: 'darkblue', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px' }}>Continue to Next Slide →</button>
-            </div>
-          )
-        ) : (
-          <>
-            {(sessionMode === 'clinician-solo' || (sessionMode === 'synchronized' && syncRole === 'clinician')) ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Targets Selected: <strong>{selectedZones.length}</strong></span>
-                  <label><input type="checkbox" checked={liveFlag} onChange={(e) => setLiveFlag(e.target.checked)} /> Flag Trial</label>
-                </div>
-                <textarea placeholder="Clinician comment..." value={liveComment} onChange={(e) => setLiveComment(e.target.value)} style={{ width: '100%' }}/>
-                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                  {activeSlide.allowBackNavigation && currentIndex > 0 && (
-                    <button onClick={handlePreviousStep} style={{ flex: 1, padding: '12px', backgroundColor: '#666', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>← Back</button>
-                  )}
-                  <button onClick={proceedToNextStep} style={{ flex: 2, padding: '12px', backgroundColor: 'darkblue', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Next Slide / Finish</button>
-                </div>
-              </div>
-            ) : (sessionMode === 'synchronized' && syncRole === 'patient') ? (
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Selections synced. Waiting for clinician...</p>
-              </div>
+      {!isPatientAutoAdvance && (
+        <div style={{ position: 'sticky', bottom: '0', zIndex: 10, marginTop: '20px', padding: '15px', backgroundColor: '#eef8ff', borderTop: '2px solid darkblue', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}>
+          {activeSlide.slideType === 'info' ? (
+            (sessionMode === 'synchronized' && syncRole === 'patient') ? (
+              <p style={{ textAlign: 'center', fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Waiting for clinician to advance...</p>
             ) : (
-              <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '16px' }}>Selected {selectedZones.length} targets.</span>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  {activeSlide.allowBackNavigation && currentIndex > 0 && (
-                    <button onClick={handlePreviousStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>← Back</button>
-                  )}
-                  <button onClick={proceedToNextStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    {currentIndex < configuredSlides.length - 1 ? 'Next Slide →' : 'Submit & Finish'}
-                  </button>
-                </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {activeSlide.allowBackNavigation && currentIndex > 0 && (
+                   <button onClick={handlePreviousStep} style={{ flex: 1, padding: '15px', backgroundColor: '#666', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px' }}>← Back</button>
+                )}
+                <button onClick={proceedToNextStep} style={{ flex: activeSlide.allowBackNavigation && currentIndex > 0 ? 2 : 1, padding: '15px', backgroundColor: 'darkblue', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px' }}>Continue to Next Slide →</button>
               </div>
-            )}
-          </>
-        )}
-      </div>
+            )
+          ) : (
+            <>
+              {(sessionMode === 'clinician-solo' || (sessionMode === 'synchronized' && syncRole === 'clinician')) ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Targets Selected: <strong>{selectedZones.length}</strong></span>
+                    <label><input type="checkbox" checked={liveFlag} onChange={(e) => setLiveFlag(e.target.checked)} /> Flag Trial</label>
+                  </div>
+                  <textarea placeholder="Clinician comment..." value={liveComment} onChange={(e) => setLiveComment(e.target.value)} style={{ width: '100%' }}/>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    {activeSlide.allowBackNavigation && currentIndex > 0 && (
+                      <button onClick={handlePreviousStep} style={{ flex: 1, padding: '12px', backgroundColor: '#666', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>← Back</button>
+                    )}
+                    <button onClick={proceedToNextStep} style={{ flex: 2, padding: '12px', backgroundColor: 'darkblue', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>Next Slide / Finish</button>
+                  </div>
+                </div>
+              ) : (sessionMode === 'synchronized' && syncRole === 'patient') ? (
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Selections synced. Waiting for clinician...</p>
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '16px' }}>Selected {selectedZones.length} targets.</span>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {activeSlide.allowBackNavigation && currentIndex > 0 && (
+                      <button onClick={handlePreviousStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: '#666', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>← Back</button>
+                    )}
+                    <button onClick={proceedToNextStep} style={{ padding: '15px 30px', fontSize: '18px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+                      {currentIndex < configuredSlides.length - 1 ? 'Next Slide →' : 'Submit & Finish'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

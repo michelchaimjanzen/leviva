@@ -13,6 +13,7 @@ const API_URL = 'https://leviva-backend.onrender.com';
 interface SequenceStep {
   stepType: 'info' | 'test';
   infoContent?: string;
+  infoContentFemale?: string; // <-- This is the only new line
   testId?: {
     _id: string;
     testName: string;
@@ -235,17 +236,13 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
     </div>
   );
 
-  // --- INFO STEP ---
+// --- INFO STEP ---
   if (currentStep.stepType === 'info') {
-    let displayContent = currentStep.infoContent || '';
-    if (patientGender === 'Female') {
-      displayContent = displayContent
-        .replace(/\bשים לב\b/g, 'שימי לב')
-        .replace(/\bתוכל\b/g, 'תוכלי')
-        .replace(/\bמוכן\b/g, 'מוכנה')
-        .replace(/\bנבדק\b/g, 'נבדקת')
-        .replace(/\bבוחר\b/g, 'בוחרת');
-    }
+    // If patient is Female AND a female version was written in the builder, show it. 
+    // Otherwise, fallback to the default infoContent.
+    const displayContent = (patientGender === 'Female' && currentStep.infoContentFemale && currentStep.infoContentFemale.trim() !== '') 
+      ? currentStep.infoContentFemale 
+      : currentStep.infoContent || '';
 
     return (
       <div dir="rtl" style={{ maxWidth: '700px', margin: '60px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#fafafa', textAlign: 'right' }}>

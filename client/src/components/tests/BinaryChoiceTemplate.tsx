@@ -33,6 +33,7 @@ export interface FinalReport {
   testMode: string;
   isFlagged: boolean;
   clinicianComment: string;
+  totalTimeSpentMs?: number; 
   results: BinarySessionOutput[];
 }
 
@@ -366,11 +367,13 @@ interface RunnerProps {
   forcedMode?: string;
   onComplete?: (data: any) => void;
 }
-
 export function BinaryChoiceRunner({ configuredTrials, testMode, forcedMode, onComplete }: RunnerProps) {
   const [patientSelections, setPatientSelections] = useState<Record<string, string>>({});
   const [liveFlag, setLiveFlag] = useState(false);
   const [liveComment, setLiveComment] = useState('');
+  
+  // <-- ADD THIS STOPWATCH
+  const [testStartTime] = useState(() => Date.now());
 
   const renderList = useMemo(() => {
     return configuredTrials.map(trial => {
@@ -403,9 +406,9 @@ export function BinaryChoiceRunner({ configuredTrials, testMode, forcedMode, onC
         isCorrect: selection === trial.correctChoice
       };
     });
-
-    const finalReport: FinalReport = { testMode, isFlagged: liveFlag, clinicianComment: liveComment, results };
-
+    // <-- CALCULATE TIME AND ADD TO REPORT
+    const totalTimeSpentMs = Date.now() - testStartTime;
+    const finalReport: FinalReport = { testMode, isFlagged: liveFlag, clinicianComment: liveComment, totalTimeSpentMs, results };
     // Bypassing manual download if controlled by Sequence Runner
     if (onComplete) {
       onComplete(finalReport);

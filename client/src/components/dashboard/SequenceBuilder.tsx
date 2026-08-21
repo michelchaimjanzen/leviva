@@ -80,8 +80,8 @@ export function SequenceBuilder({
 
   // 2. Handlers to add blocks to your sequence
   const addInfoPage = () => {
-    setSteps([...steps, { stepType: 'info', infoContent: '' }]);
-  };
+    setSteps([...steps, { stepType: 'info', infoContent: '', infoContentFemale: '' }]); 
+ };
 
   const addTestStep = () => {
     setSteps([...steps, { stepType: 'test', testId: '' }]);
@@ -215,14 +215,23 @@ export function SequenceBuilder({
             <button onClick={() => removeStep(idx)} style={{ position: 'absolute', top: '10px', right: '10px', color: 'red', cursor: 'pointer' }}>X</button>
             
             <h4 style={{ margin: '0 0 10px 30px' }}>Step {idx + 1}: {step.stepType === 'info' ? 'Information Page' : 'Interactive Test'}</h4>
-            
-            {step.stepType === 'info' ? (
-              <textarea 
-                placeholder="Type instructions for the participant here (e.g., 'In this next test, you will...')"
-                value={step.infoContent || ''}
-                onChange={(e) => updateStep(idx, 'infoContent', e.target.value)}
-                style={{ width: '100%', height: '80px', padding: '8px', boxSizing: 'border-box', marginLeft: '30px', width: 'calc(100% - 30px)' }}
-              />
+       {step.stepType === 'info' ? (
+              <div style={{ marginLeft: '30px', width: 'calc(100% - 30px)' }}>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px' }}>Default / Masculine Instructions:</label>
+                <textarea 
+                  placeholder="Type instructions here (e.g., 'שים לב...')"
+                  value={step.infoContent || ''}
+                  onChange={(e) => updateStep(idx, 'infoContent', e.target.value)}
+                  style={{ width: '100%', height: '80px', padding: '8px', boxSizing: 'border-box', marginBottom: '15px' }}
+                />
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', color: 'darkmagenta' }}>Feminine Instructions (Optional):</label>
+                <textarea 
+                  placeholder="Type feminine instructions here (e.g., 'שימי לב...'). If left blank, the default will be used."
+                  value={step.infoContentFemale || ''}
+                  onChange={(e) => updateStep(idx, 'infoContentFemale', e.target.value)}
+                  style={{ width: '100%', height: '80px', padding: '8px', boxSizing: 'border-box', border: '1px solid darkmagenta' }}
+                />
+              </div>
             ) : (
               <select 
                 value={step.testId || ''}
