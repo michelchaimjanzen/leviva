@@ -9,6 +9,7 @@ import { TargetRunnerEngine } from '../tests/VisualTargetIdentification';
 import { NamingTaskRunner } from '../tests/NamingTask';
 
 const API_URL = 'https://leviva-backend.onrender.com';
+
 interface SequenceStep {
   stepType: 'info' | 'test';
   infoContent?: string;
@@ -46,6 +47,7 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
   const [patientIdNumber, setPatientIdNumber] = useState('');
   const [patientAge, setPatientAge] = useState('');
   const [patientGender, setPatientGender] = useState('');
+  const [readingDifficulty, setReadingDifficulty] = useState('');
   
   const [isStarted, setIsStarted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,7 +67,7 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
       })
       .catch(err => {
         console.error('Failed to load sequence:', err);
-        setError('Could not load this sequence from the server.');
+        setError('לא הצלחנו לטעון את הרצף מהשרת.');
       })
       .finally(() => setLoading(false));
   }, [sequenceId]);
@@ -95,13 +97,14 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
           name: patientName, 
           idNumber: patientIdNumber, 
           age: patientAge, 
-          gender: patientGender 
+          gender: patientGender,
+          readingDifficulty: readingDifficulty
         },
         ...sequenceResults
       ];
 
       const payload = {
-        patientId: patientIdNumber, // Matches your backend requirement
+        patientId: patientIdNumber,
         sequenceId: sequence._id,
         sequenceName: sequence.sequenceName,
         masterResults: finalResults
@@ -117,23 +120,23 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
         setSubmitSuccess(true);
       } else {
         const errData = await response.json();
-        alert(`❌ Failed to save results to cloud: ${errData.error}`);
+        alert(`❌ שגיאה בשמירת התוצאות בענן: ${errData.error}`);
       }
     } catch (error) {
       console.error("Cloud connection error:", error);
-      alert("❌ Could not connect to backend to save results.");
+      alert("❌ לא ניתן להתחבר לשרת לשמירת התוצאות.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading sequence…</div>;
+  if (loading) return <div dir="rtl" style={{ padding: '40px', textAlign: 'center' }}>טוען את המבדק…</div>;
 
   if (error || !sequence) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <p style={{ color: 'red' }}>{error || 'Sequence not found.'}</p>
-        {onExit && <button onClick={onExit} style={{ padding: '10px 20px', cursor: 'pointer' }}>← Back</button>}
+      <div dir="rtl" style={{ padding: '40px', textAlign: 'center' }}>
+        <p style={{ color: 'red' }}>{error || 'המבדק לא נמצא.'}</p>
+        {onExit && <button onClick={onExit} style={{ padding: '10px 20px', cursor: 'pointer' }}>← חזור</button>}
       </div>
     );
   }
@@ -141,44 +144,53 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
   // --- PRE-TEST INTAKE SCREEN ---
   if (!isStarted) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', maxWidth: '500px', margin: '60px auto', fontFamily: 'sans-serif', backgroundColor: '#f9f9f9', border: '1px solid #ccc', borderRadius: '8px' }}>
-        <h2>Welcome</h2>
-        <p style={{ fontSize: '18px', color: 'darkblue', marginBottom: '30px' }}>{sequence.sequenceName}</p>
+      <div dir="rtl" style={{ padding: '40px', textAlign: 'right', maxWidth: '550px', margin: '60px auto', fontFamily: 'sans-serif', backgroundColor: '#f9f9f9', border: '1px solid #ccc', borderRadius: '8px' }}>
+        <h2 style={{ color: 'darkblue', marginBottom: '10px' }}>תודה שאתם עוזרים לנו!</h2>
+        <p style={{ fontSize: '18px', marginBottom: '30px' }}>אנא מלאו את הפרטים ונתחיל.</p>
         
-        <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <label>
-            <strong>Full Name:</strong>
-            <input type="text" value={patientName} onChange={(e) => setPatientName(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px' }} />
+            <strong>שם מלא:</strong>
+            <input type="text" value={patientName} onChange={(e) => setPatientName(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px', boxSizing: 'border-box' }} />
           </label>
           <label>
-            <strong>ID Number:</strong>
-            <input type="text" value={patientIdNumber} onChange={(e) => setPatientIdNumber(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px' }} />
+            <strong>תעודת זהות:</strong>
+            <input type="text" value={patientIdNumber} onChange={(e) => setPatientIdNumber(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px', boxSizing: 'border-box' }} />
           </label>
           <label>
-            <strong>Age:</strong>
-            <input type="number" value={patientAge} onChange={(e) => setPatientAge(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px' }} />
+            <strong>גיל:</strong>
+            <input type="number" value={patientAge} onChange={(e) => setPatientAge(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px', boxSizing: 'border-box' }} />
           </label>
           <label>
-            <strong>Gender:</strong>
-            <select value={patientGender} onChange={(e) => setPatientGender(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px' }}>
-              <option value="">Select...</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
+            <strong>מגדר:</strong>
+            <select value={patientGender} onChange={(e) => setPatientGender(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px', boxSizing: 'border-box' }}>
+              <option value="">בחרי/בחר...</option>
+              <option value="Male">זכר</option>
+              <option value="Female">נקבה</option>
+              <option value="Other">אחר</option>
+            </select>
+          </label>
+          <label>
+            <strong>האם את/ה חושב/ת שיש לך קושי בקריאה?</strong>
+            <select value={readingDifficulty} onChange={(e) => setReadingDifficulty(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', fontSize: '16px', boxSizing: 'border-box' }}>
+              <option value="">בחרי/בחר...</option>
+              <option value="No">לא, אין לי קושי בקריאה</option>
+              <option value="Diagnosed">יש לי אבחון של דיסלקסיה</option>
+              <option value="Suspect">אני חושבת שיש לי קושי אבל לא אובחנתי</option>
             </select>
           </label>
         </div>
         
         <button 
           onClick={() => {
-            if (!patientName.trim() || !patientIdNumber.trim() || !patientAge || !patientGender) {
-              return alert("Please fill out all fields to begin the test.");
+            if (!patientName.trim() || !patientIdNumber.trim() || !patientAge || !patientGender || !readingDifficulty) {
+              return alert("נא למלא את כל השדות כדי להתחיל.");
             }
             setIsStarted(true);
           }}
           style={{ width: '100%', padding: '15px', backgroundColor: 'darkblue', color: 'white', border: 'none', borderRadius: '6px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', marginTop: '30px' }}
         >
-          Start Test
+          התחלת המבדק
         </button>
       </div>
     );
@@ -188,25 +200,25 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
   if (stepIndex >= sequence.steps.length) {
     if (submitSuccess) {
       return (
-        <div style={{ padding: '60px 40px', textAlign: 'center', backgroundColor: '#eef8ff', border: '2px solid green', borderRadius: '8px', maxWidth: '600px', margin: '40px auto' }}>
-          <h2>✅ Thank You!</h2>
-          <p style={{ fontSize: '18px' }}>Your results have been successfully submitted.</p>
-          <p>You may now close this window.</p>
+        <div dir="rtl" style={{ padding: '60px 40px', textAlign: 'center', backgroundColor: '#eef8ff', border: '2px solid green', borderRadius: '8px', maxWidth: '600px', margin: '40px auto' }}>
+          <h2>✅ תודה רבה!</h2>
+          <p style={{ fontSize: '18px' }}>התוצאות שלך נשמרו בהצלחה.</p>
+          <p>כעת אפשר לסגור את החלון.</p>
         </div>
       );
     }
 
     return (
-      <div style={{ padding: '60px 40px', textAlign: 'center', maxWidth: '500px', margin: '60px auto', backgroundColor: '#f9f9f9', border: '1px solid #ddd', borderRadius: '8px' }}>
-        <h2>Test Complete</h2>
-        <p style={{ fontSize: '18px', marginBottom: '30px' }}>Thank you for completing the test. Please click submit below.</p>
+      <div dir="rtl" style={{ padding: '60px 40px', textAlign: 'center', maxWidth: '500px', margin: '60px auto', backgroundColor: '#f9f9f9', border: '1px solid #ddd', borderRadius: '8px' }}>
+        <h2>המבדק הושלם</h2>
+        <p style={{ fontSize: '18px', marginBottom: '30px' }}>תודה רבה על השלמת המבדק. אנא לחץ/י על כפתור השליחה למטה.</p>
         
         <button
           onClick={handleSubmitResults}
           disabled={isSubmitting}
           style={{ width: '100%', padding: '15px 30px', backgroundColor: isSubmitting ? 'gray' : 'green', color: 'white', border: 'none', borderRadius: '8px', cursor: isSubmitting ? 'not-allowed' : 'pointer', fontSize: '18px', fontWeight: 'bold' }}
         >
-          {isSubmitting ? 'Submitting... ⏳' : 'Submit'}
+          {isSubmitting ? 'שולח... ⏳' : 'שלח תוצאות'}
         </button>
       </div>
     );
@@ -216,20 +228,30 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
 
   // Manual advance fallback
   const ManualAdvanceControl = (
-    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 1000 }}>
+    <div style={{ position: 'fixed', bottom: '20px', left: '20px', zIndex: 1000 }}>
       <button onClick={goToNextStep} style={{ padding: '10px 18px', backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
-        Skip Step ▶ ({stepIndex + 1}/{sequence.steps.length})
+        דלג שלב ▶ ({stepIndex + 1}/{sequence.steps.length})
       </button>
     </div>
   );
 
   // --- INFO STEP ---
   if (currentStep.stepType === 'info') {
+    let displayContent = currentStep.infoContent || '';
+    if (patientGender === 'Female') {
+      displayContent = displayContent
+        .replace(/\bשים לב\b/g, 'שימי לב')
+        .replace(/\bתוכל\b/g, 'תוכלי')
+        .replace(/\bמוכן\b/g, 'מוכנה')
+        .replace(/\bנבדק\b/g, 'נבדקת')
+        .replace(/\bבוחר\b/g, 'בוחרת');
+    }
+
     return (
-      <div style={{ maxWidth: '700px', margin: '60px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#fafafa' }}>
-        <p style={{ fontSize: '18px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{currentStep.infoContent}</p>
-        <button onClick={goToNextStep} style={{ marginTop: '30px', padding: '12px 24px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', cursor: 'pointer' }}>
-          Continue →
+      <div dir="rtl" style={{ maxWidth: '700px', margin: '60px auto', padding: '30px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#fafafa', textAlign: 'right' }}>
+        <p style={{ fontSize: '22px', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{displayContent}</p>
+        <button onClick={goToNextStep} style={{ marginTop: '30px', padding: '12px 30px', backgroundColor: 'green', color: 'white', border: 'none', borderRadius: '6px', fontSize: '18px', cursor: 'pointer', fontWeight: 'bold' }}>
+          המשך ←
         </button>
         {ManualAdvanceControl}
       </div>
@@ -241,8 +263,8 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
 
   if (!test || typeof test === 'string') {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <p style={{ color: 'red' }}>This step references a test that could no longer be found.</p>
+      <div dir="rtl" style={{ padding: '40px', textAlign: 'center' }}>
+        <p style={{ color: 'red' }}>שגיאה: המבדק לא נמצא.</p>
         {ManualAdvanceControl}
       </div>
     );
@@ -265,7 +287,7 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
       case 'Naming':
         return <NamingTaskRunner configuredSlides={slides} forcedMode="Patient Solo" onComplete={handleStepComplete} />;
       default:
-        return <p style={{ color: 'red' }}>Unknown test type: {test.testType}</p>;
+        return <p style={{ color: 'red' }}>סוג מבדק לא מוכר: {test.testType}</p>;
     }
   };
 
