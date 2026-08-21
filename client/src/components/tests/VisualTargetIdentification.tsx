@@ -641,11 +641,15 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
     }
   };
 
-  const commitCurrentSlideToMemory = () => {
+ const commitCurrentSlideToMemory = () => {
     if (activeSlide.slideType === 'graded') {
       const correctHits = selectedZones.filter(z => z.type === 'correct').length;
       const incorrectHits = selectedZones.filter(z => z.type === 'incorrect').length;
       
+      // NEW: Get the previously stored time if they visited this slide before!
+      const previouslySpentMs = answersMapRef.current[activeSlide.id]?.timeSpentOnSlideMs || 0;
+      const timeSpentThisVisit = Date.now() - slideStartTimeRef.current;
+
       answersMapRef.current[activeSlide.id] = {
         slideID: activeSlide.id,
         score: activeSlide.selectionMode === 'multiple' 
@@ -653,7 +657,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
           : (selectedZones[0]?.type === 'correct' ? 'Correct!' : (selectedZones.length > 0 ? 'Incorrect!' : 'No Answer')),
         selectedZones: selectedZones,
         reactionTimeMs: lastClickTime,
-        timeSpentOnSlideMs: Date.now() - slideStartTimeRef.current,
+        timeSpentOnSlideMs: previouslySpentMs + timeSpentThisVisit, // <-- NOW IT ACCUMULATES!
         isFlagged: liveFlag,
         clinicianComment: liveComment,
       };
