@@ -1,19 +1,18 @@
 import { Router } from 'express';
-import { requireAuth } from '@clerk/express';
 import TestConfig from '../models/TestConfig.js';
 import PatientResult from '../models/PatientResult.js';
 import TestSequence from '../models/TestSequence.js';
-import { requireRole } from '../middleware/requireRole.js';
+import { protect, superAdminOnly } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-const clinicianOrAdmin = [requireAuth(), requireRole(['clinician', 'lab_admin'])];
-const adminOnly = [requireAuth(), requireRole(['lab_admin'])];
+// Replace old Clerk roles with our new Custom JWT roles
+const clinicianOrAdmin = [protect]; // Any logged-in, approved user
+const adminOnly = [protect, superAdminOnly]; // Only users with 'super_admin' role
 
 // --- TEST CONFIGURATION ROUTES ---
 
 // Save a new test configuration created in the clinician workspace
-// LAB ADMIN ONLY — building/editing core test templates is admin territory.
 router.post('/tests', ...adminOnly, async (req, res) => {
   try {
     const newTest = new TestConfig(req.body);
@@ -25,7 +24,6 @@ router.post('/tests', ...adminOnly, async (req, res) => {
 });
 
 // Fetch all available test configurations for the dashboard
-// CLINICIAN or LAB ADMIN — clinicians need to browse the bank to build sequences.
 router.get('/tests', ...clinicianOrAdmin, async (req, res) => {
   try {
     const tests = await TestConfig.find().sort({ createdAt: -1 });
@@ -36,7 +34,6 @@ router.get('/tests', ...clinicianOrAdmin, async (req, res) => {
 });
 
 // Fetch all sequences
-// CLINICIAN or LAB ADMIN
 router.get('/sequences', ...clinicianOrAdmin, async (req, res) => {
   try {
     const sequences = await TestSequence.find({});
@@ -48,13 +45,12 @@ router.get('/sequences', ...clinicianOrAdmin, async (req, res) => {
 });
 
 // Update an existing test configuration by ID
-// LAB ADMIN ONLY
 router.put('/tests/:id', ...adminOnly, async (req, res) => {
   try {
     const updatedTest = await TestConfig.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true } // returns the updated document
+      { new: true } 
     );
     res.json(updatedTest);
   } catch (error: any) {
@@ -63,7 +59,6 @@ router.put('/tests/:id', ...adminOnly, async (req, res) => {
 });
 
 // DELETE a test
-// LAB ADMIN ONLY
 router.delete('/tests/:id', ...adminOnly, async (req, res) => {
   try {
     await TestConfig.findByIdAndDelete(req.params.id);
@@ -74,7 +69,6 @@ router.delete('/tests/:id', ...adminOnly, async (req, res) => {
 });
 
 // 1. Save a new Sequence (POST)
-// LAB ADMIN ONLY
 router.post('/sequences', ...adminOnly, async (req, res) => {
   try {
     const newSequence = new TestSequence(req.body);
@@ -86,9 +80,7 @@ router.post('/sequences', ...adminOnly, async (req, res) => {
 });
 
 // 2. Fetch a specific Sequence by ID (GET)
-// PUBLIC — this is exactly what the standalone /run/:id patient tunnel calls to load
-// the sequence to run. Do NOT put requireAuth on this route.
-// We use .populate('steps.testId') so it automatically fetches all the actual test data for the runner!
+// PUBLIC
 router.get('/sequences/:id', async (req, res) => {
   try {
     const sequence = await TestSequence.findById(req.params.id)
@@ -103,9 +95,7 @@ router.get('/sequences/:id', async (req, res) => {
   }
 });
 
-// 3. UPDATE an existing Sequence (PUT) — supports the Sequence Builder's edit mode.
-// LAB ADMIN ONLY
-// Full-document replace of sequenceName/description/steps, same pattern as /tests/:id.
+// 3. UPDATE an existing Sequence (PUT)
 router.put('/sequences/:id', ...adminOnly, async (req, res) => {
   try {
     const updatedSequence = await TestSequence.findByIdAndUpdate(
@@ -123,7 +113,6 @@ router.put('/sequences/:id', ...adminOnly, async (req, res) => {
 });
 
 // DELETE a sequence
-// LAB ADMIN ONLY
 router.delete('/sequences/:id', ...adminOnly, async (req, res) => {
   try {
     await TestSequence.findByIdAndDelete(req.params.id);
@@ -136,16 +125,14 @@ router.delete('/sequences/:id', ...adminOnly, async (req, res) => {
 // --- PATIENT RESULT ROUTES ---
 
 // SAVE a new master sequence result to the cloud
-// PUBLIC — this is the final step of the patient tunnel, submitted with no login.
-// Do NOT put requireAuth on this route.
+// PUBLIC 
 router.post('/results', async (req, res) => {
   try {
     const { patientId, sequenceId, sequenceName, masterResults } = req.body;
 
-    // Automatically extract all the test types from the results for Category 2 filtering
     const testTypesIncluded = masterResults
       .map((result: any) => result.data?.testType || 'Unknown')
-      .filter((value: string, index: number, self: string[]) => self.indexOf(value) === index); // Removes duplicates
+      .filter((value: string, index: number, self: string[]) => self.indexOf(value) === index); 
 
     const newResult = new PatientResult({
       patientId,
@@ -164,7 +151,6 @@ router.post('/results', async (req, res) => {
 });
 
 // Fetch historical results for a specific test or patient
-// CLINICIAN or LAB ADMIN — patient results are sensitive, never public.
 router.get('/results', ...clinicianOrAdmin, async (req, res) => {
   try {
     const results = await PatientResult.find().populate('testId').sort({ sessionDate: -1 });
