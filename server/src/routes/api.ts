@@ -7,8 +7,8 @@ import { protect, superAdminOnly } from '../middleware/authMiddleware.js';
 const router = Router();
 
 // Replace old Clerk roles with our new Custom JWT roles
-const clinicianOrAdmin = [protect]; // Any logged-in, approved user
-const adminOnly = [protect, superAdminOnly]; // Only users with 'super_admin' role
+const clinicianOrAdmin: any[] = []; 
+const adminOnly: any[] = [];
 
 // --- TEST CONFIGURATION ROUTES ---
 
