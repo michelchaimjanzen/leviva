@@ -641,7 +641,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
     }
   };
 
- const commitCurrentSlideToMemory = () => {
+const commitCurrentSlideToMemory = () => {
     if (activeSlide.slideType === 'graded') {
       const correctHits = selectedZones.filter(z => z.type === 'correct').length;
       const incorrectHits = selectedZones.filter(z => z.type === 'incorrect').length;
