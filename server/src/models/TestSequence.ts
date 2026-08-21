@@ -23,7 +23,7 @@ const TestSequenceSchema: Schema = new Schema({
   steps: [{
     stepType: { type: String, enum: ['info', 'test'], required: true },
     testId: { type: Schema.Types.ObjectId, ref: 'TestConfig' },
-    infoContent: { type: String }
+    infoContent: { type: String },
     infoContentFemale: { type: String },
   }],
   createdAt: { type: Date, default: Date.now }
