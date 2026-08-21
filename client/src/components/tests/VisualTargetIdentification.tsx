@@ -517,30 +517,36 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
 
   const answersMapRef = useRef<Record<string, PatientTargetResponse>>({});
   const scrollPositionsRef = useRef<Record<string, number>>({});
+  const lockedScrollRef = useRef<number>(0); 
 
   const activeSlide = configuredSlides[currentIndex];
 
- useEffect(() => {
+  useEffect(() => {
     slideStartTimeRef.current = Date.now();
     
     const existingMemory = answersMapRef.current[activeSlide.id];
     setSelectedZones(existingMemory ? existingMemory.selectedZones : []);
     setLastClickTime(existingMemory ? existingMemory.reactionTimeMs : null);
 
-    // ONLY apply the scroll jump for Multiple-Select graded pages!
-    if (activeSlide.slideType === 'graded' && activeSlide.selectionMode === 'multiple') {
-      const savedScrollPosition = scrollPositionsRef.current[activeSlide.id];
-      
-      setTimeout(() => {
+    const savedScrollPosition = scrollPositionsRef.current[activeSlide.id];
+    
+    setTimeout(() => {
+      if (activeSlide.slideType === 'graded' && activeSlide.selectionMode === 'multiple') {
         if (savedScrollPosition !== undefined) {
           window.scrollTo({ top: savedScrollPosition, behavior: 'auto' });
         } else {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-      }, 50);
-    }
+      } else {
+        if (savedScrollPosition !== undefined) {
+          window.scrollTo({ top: savedScrollPosition, behavior: 'auto' });
+        } else {
+          window.scrollTo({ top: lockedScrollRef.current, behavior: 'auto' });
+        }
+      }
+    }, 50);
 
-  }, [currentIndex, activeSlide.id]);
+  }, [currentIndex, activeSlide.id, activeSlide.slideType, activeSlide.selectionMode]);
 
   useEffect(() => {
     if (timeLeft === null || isTestComplete || testStartTime === null) return;
@@ -662,6 +668,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
 
     if (currentIndex < configuredSlides.length - 1) {
       const nextIndex = currentIndex + 1;
+      lockedScrollRef.current = window.scrollY;
       setCurrentIndex(nextIndex);
       
       if (socket && sessionMode === 'synchronized' && syncRole === 'clinician') {
@@ -694,6 +701,7 @@ export function TargetRunnerEngine({ configuredSlides, forcedMode, onComplete }:
 
     if (currentIndex > 0) {
       const prevIndex = currentIndex - 1;
+      lockedScrollRef.current = window.scrollY;
       setCurrentIndex(prevIndex);
       if (socket && sessionMode === 'synchronized' && syncRole === 'clinician') {
         socket.emit('clinician-slide-change', { sessionId: syncSetup.roomId, newIndex: prevIndex });
