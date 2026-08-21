@@ -177,7 +177,7 @@ export function PublicSequenceRunner({ sequenceId, onExit }: PublicSequenceRunne
               <option value="">בחרי/בחר...</option>
               <option value="No">לא, אין לי קושי בקריאה</option>
               <option value="Diagnosed">יש לי אבחון של דיסלקסיה</option>
-              <option value="Suspect">אני חושבת שיש לי קושי אבל לא אובחנתי</option>
+              <option value="Suspect">אני חושב/ת שיש לי קושי אבל לא אובחנתי</option>
             </select>
           </label>
         </div>
