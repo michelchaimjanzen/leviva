@@ -426,7 +426,6 @@ export function BinaryChoiceRunner({ configuredTrials, testMode, forcedMode, onC
 
   return (
     <div style={{ padding: '20px', border: '2px solid darkblue', marginTop: '20px', fontFamily: 'sans-serif' }}>
-      <h2>Layer 3: Patient Testing Engine ({testMode})</h2>
       
       <div style={{ backgroundColor: '#f9f9f9', padding: '40px', borderRadius: '8px', maxHeight: '60vh', overflowY: 'auto', border: '1px solid #ccc' }}>
         {renderList.map((trial, idx) => {
